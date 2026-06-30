@@ -123,6 +123,12 @@ Your task: Generate a JSON BehaviorTree that solves the given goal by orchestrat
 
 - Extract the goal's requirements and decompose into sub-tasks
 - Map sub-tasks to available actions and properties
+- Identify preconditions implied by action descriptions:
+  - Check action/property names and descriptions for prerequisites
+  - Example: "grasp" implies there must be an object present (check via sensor/property first)
+  - Example: "moveTo" implies the robot is not already at the destination (verify via location properties)
+  - Example: "release" implies the robot is currently holding something (check grasping state first)
+  - Guard actions with condition checks when preconditions are not guaranteed
 - Use conditions to guard actions where appropriate
 - Use sequences for ordered task chains
 - Use selectors for check-then-act patterns

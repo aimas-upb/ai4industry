@@ -1,11 +1,9 @@
 import json
 import logging
 
-from openai import OpenAI
-
-from src.config import LLM_PROVIDER, LLM_MODEL, LLM_API_KEY, MISTRAL_API_KEY, MISTRAL_BASE_URL, get_llm_params
+from src.utils.llm_client import LLMClient
 from src.discovery.capability_model import CapabilityModel
-from src.models import GoalSpecification
+from src.utils.models import GoalSpecification
 from src.planning.prompts import create_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -78,17 +76,7 @@ class BTPlanner:
             capability_model: The CapabilityModel containing discovered affordances
             goal_spec: GoalSpecification containing schema and instance
         """
-        # Initialize OpenAI client. For Mistral, use the OpenAI-compatible endpoint.
-        # Add timeout for Responses API calls (in seconds)
-        if LLM_PROVIDER == "mistral":
-            self.client = OpenAI(
-                api_key=MISTRAL_API_KEY,
-                base_url=MISTRAL_BASE_URL,
-                timeout=600,  # 10 minutes max for reasoning
-            )
-        else:
-            self.client = OpenAI(api_key=LLM_API_KEY, timeout=600)
-
+        self.llm = LLMClient()
         self.capability_model = capability_model
         self.goal_spec = goal_spec or GoalSpecification("", "")
         # System prompt should not include goal_predicate; that goes in user message
@@ -128,21 +116,27 @@ class BTPlanner:
 
         for attempt in range(3):
             logger.debug(f"BT generation attempt {attempt + 1}/3")
-            # Get model-specific parameters
-            llm_params = get_llm_params()
 
-            # Call LLM to generate BT
+            # Call LLM with tools (abstracts away provider differences)
             try:
-                response = self._call_responses_api(messages, llm_params)
+                tool_calls, content = self.llm.call_with_tools(
+                    self.system_prompt,
+                    messages,
+                    [
+                        {
+                            "type": "function",
+                            "name": "generate_behavior_tree",
+                            "description": "Generate a BehaviorTree to solve the goal",
+                            "parameters": BT_TOOL_SCHEMA,
+                        }
+                    ],
+                )
             except KeyboardInterrupt:
                 logger.warning(f"BT generation attempt {attempt + 1}/3 interrupted by user")
                 raise
             except Exception as e:
                 logger.error(f"BT generation attempt {attempt + 1}/3 failed: {e}", exc_info=True)
                 continue
-
-            # Extract BT from response
-            tool_calls, content = self._extract_response_data(response)
 
             # Try tool call first (preferred path)
             if tool_calls:
@@ -160,57 +154,6 @@ class BTPlanner:
         error_msg = f"{YELLOW}[ERROR]{RESET} Failed to generate valid BehaviorTree after 3 attempts"
         logger.error(error_msg)
         raise ValueError("Failed to generate valid BehaviorTree after 3 attempts")
-
-    def _call_responses_api(self, messages: list, llm_params: dict):
-        """
-        Call Responses API with BT generation tool.
-
-        Args:
-            messages: Conversation messages for context
-            llm_params: Model-specific parameters (reasoning, temperature, etc.)
-
-        Returns:
-            Response from Responses API
-        """
-        return self.client.responses.create(
-            model=LLM_MODEL,
-            instructions=self.system_prompt,
-            input=messages,
-            tools=[
-                {
-                    "type": "function",
-                    "name": "generate_behavior_tree",
-                    "description": "Generate a BehaviorTree to solve the goal",
-                    "parameters": BT_TOOL_SCHEMA,
-                }
-            ],
-            **llm_params,
-        )
-
-    def _extract_response_data(self, response) -> tuple[list, str]:
-        """
-        Extract tool calls and text content from Responses API output.
-
-        Args:
-            response: Response object from Responses API
-
-        Returns:
-            Tuple of (tool_calls list, text content string)
-        """
-        tool_calls = []
-        content = ""
-
-        for item in response.output:
-            if hasattr(item, "content"):
-                # ResponseOutputMessage: extract text from content list
-                for content_item in item.content:
-                    if hasattr(content_item, "text"):
-                        content = content_item.text
-            elif hasattr(item, "name") and hasattr(item, "arguments"):
-                # ResponseFunctionToolCall: extract tool call
-                tool_calls.append(item)
-
-        return tool_calls, content
 
     def _process_tool_calls(self, tool_calls: list, content: str, messages: list) -> dict | None:
         """

@@ -5,13 +5,6 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Artifact KG URIs
-ARTIFACT_REGISTRY = {
-    "APAS": "https://ci.mines-stetienne.fr/kg/itmfactory/bosch-apas#this",
-    "DX10": "https://ci.mines-stetienne.fr/kg/itmfactory/dx10#this",
-    "XY10": "https://ci.mines-stetienne.fr/kg/itmfactory/xy10#this",
-    "VL10": "https://ci.mines-stetienne.fr/kg/itmfactory/vl10#this",
-}
 
 # LLM settings
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")  # "openai" or "mistral"
@@ -33,6 +26,16 @@ SIMULATOR_PASSWORD = f"simu{SIMULATOR_GROUP}"
 
 # Discovery settings
 MAX_DISCOVERY_ITERATIONS = 10
+
+# Plan caching settings
+PLAN_CACHE_PATH = os.getenv("PLAN_CACHE_PATH")
+if PLAN_CACHE_PATH and PLAN_CACHE_PATH.strip():
+    PLAN_CACHE_PATH = Path(PLAN_CACHE_PATH)
+else:
+    PLAN_CACHE_PATH = None
+
+# Flag to control whether cached plans are reused (set by run.py --with-plan-caching)
+PLAN_CACHE_REUSE_ENABLED = os.getenv("PLAN_CACHE_ENABLED", "false").lower() == "true"
 
 
 def get_llm_params() -> dict:

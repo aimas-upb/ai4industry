@@ -1,6 +1,6 @@
 import logging
 from fastapi import FastAPI, HTTPException
-from src.models import GoalRequest, GoalResponse
+from src.utils.models import GoalRequest, GoalResponse
 from src.agent import AgentLifecycle
 
 # Configure logging

@@ -1,10 +1,11 @@
 import logging
 import json
-from src.discovery.agentic_discovery import AgenticDiscovery, parse_goal_artifacts
+from src.discovery.agentic_discovery import AgenticDiscovery
 from src.planning.bt_planner import BTPlanner
 from src.planning.ir_executor import IRExecutor
-from src.models import GoalResponse, GoalSpecification
-from src.config import LLM_PROVIDER, LLM_MODEL, get_llm_params
+from src.utils.models import GoalResponse, GoalSpecification
+from src.config import LLM_PROVIDER, LLM_MODEL, get_llm_params, PLAN_CACHE_PATH, PLAN_CACHE_REUSE_ENABLED
+from src.utils.plan_cache import PlanCache
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,12 @@ class AgentLifecycle:
     Orchestrate the agent lifecycle: discovery -> planning -> optional execution.
 
     Logs all major steps at DEBUG level and errors with a yellow header.
+    Supports plan caching when configured.
     """
+
+    def __init__(self):
+        """Initialize with plan cache if configured."""
+        self.cache = PlanCache(PLAN_CACHE_PATH)
 
     def solve(self, goal_instance: str, execute: bool = False, goal_schema: str = "") -> GoalResponse:
         """
@@ -48,31 +54,31 @@ class AgentLifecycle:
         logger.debug(f"Starting agent lifecycle for goal: {goal_instance}")
 
         try:
-            # Step 1: Parse artifact names from goal predicate instance
-            logger.debug(f"Parsing artifact names from goal: {goal_instance}")
-            artifact_names = parse_goal_artifacts(goal_instance)
-            if not artifact_names:
-                error_msg = f"{YELLOW}[ERROR]{RESET} Could not parse artifact names from goal: {goal_instance}"
-                logger.error(error_msg)
-                raise ValueError(f"Could not parse artifact names from goal: {goal_instance}")
-            logger.debug(f"Parsed artifacts: {artifact_names}")
+            # Step 0: Check plan cache (only reuse if --with-plan-caching flag was set)
+            cached_plan = None
+            if PLAN_CACHE_REUSE_ENABLED:
+                cached_plan = self.cache.get(goal_schema, goal_instance)
+                if cached_plan:
+                    logger.info(f"[CACHE] Retrieved cached plan for goal")
+                    bt_plan = cached_plan
 
-            # Step 2: Run agentic discovery
-            logger.debug("Starting agentic discovery phase")
-            discovery = AgenticDiscovery()
-            capability_model = discovery.discover(goal_instance, artifact_names)
-            logger.debug(f"Discovery phase complete. Found {len(capability_model.artifacts)} artifacts")
-            for artifact_name, artifact in capability_model.artifacts.items():
-                logger.debug(f"  - {artifact_name}: {len(artifact.actions)} actions, {len(artifact.properties)} properties")
+            if not cached_plan:
+                # Step 1: Run agentic discovery
+                logger.debug("Starting agentic discovery phase")
+                discovery = AgenticDiscovery()
+                capability_model = discovery.discover(goal_instance)
+                logger.debug(f"Discovery phase complete. Found {len(capability_model.artifacts)} artifacts")
+                for artifact_name, artifact in capability_model.artifacts.items():
+                    logger.debug(f"  - {artifact_name}: {len(artifact.actions)} actions, {len(artifact.properties)} properties")
 
-            # Step 3: Generate BehaviorTree plan
-            logger.debug("Starting BehaviorTree planning phase")
-            planner = BTPlanner(capability_model, goal_spec=goal_spec)
-            bt_plan = planner.plan(goal_spec)
-            logger.debug(f"BehaviorTree plan generated successfully")
-            # Log the full BT plan pretty-printed
-            bt_plan_str = json.dumps(bt_plan, indent=2)
-            logger.debug(f"BT plan:\n{bt_plan_str}")
+                # Step 3: Generate BehaviorTree plan
+                logger.debug("Starting BehaviorTree planning phase")
+                planner = BTPlanner(capability_model, goal_spec=goal_spec)
+                bt_plan = planner.plan(goal_spec)
+                logger.debug(f"BehaviorTree plan generated successfully")
+                # Log the full BT plan pretty-printed
+                bt_plan_str = json.dumps(bt_plan, indent=2)
+                logger.debug(f"BT plan:\n{bt_plan_str}")
 
             # Step 4: Optionally execute the plan
             execution_result = None
@@ -87,6 +93,10 @@ class AgentLifecycle:
                     # Log execution trace for debugging
                     for trace_entry in execution_result['trace'][:10]:  # Log first 10 entries
                         logger.debug(f"  [{trace_entry['tick']}] {trace_entry['node']}: {trace_entry['status']}")
+
+                    # Cache the plan if execution succeeded (put handles enabled check and "if not exists")
+                    if execution_result['status'] == 'SUCCESS':
+                        self.cache.put(goal_schema, goal_instance, bt_plan)
                 except Exception as e:
                     error_msg = f"{YELLOW}[ERROR]{RESET} BT execution failed: {str(e)}"
                     logger.error(error_msg, exc_info=True)
@@ -94,10 +104,16 @@ class AgentLifecycle:
             else:
                 logger.debug("Skipping execution phase (execute=False)")
 
+            # For cached plans, we skip discovery so we don't have capability_model
+            # Just return empty summary for cached execution
+            capability_summary = ""
+            if 'capability_model' in locals():
+                capability_summary = capability_model.to_prompt_context()
+
             logger.debug(f"Agent lifecycle complete for goal: {goal_instance}")
             return GoalResponse(
                 goal=goal_instance,
-                capability_summary=capability_model.to_prompt_context(),
+                capability_summary=capability_summary,
                 bt_plan=bt_plan,
                 execution_result=execution_result,
             )

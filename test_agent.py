@@ -87,15 +87,18 @@ def main():
             else:
                 print(f"\n⏱ Goal execution timed out")
 
-            # Print execution trace
+            # Print execution trace with proper indentation by depth
             if exec_result['trace']:
                 print(f"\n{'Execution Trace:'}")
                 print("-" * 80)
                 for entry in exec_result['trace']:
                     status_symbol = "✓" if entry['status'] == 'SUCCESS' else "✗" if entry['status'] == 'FAILURE' else "→"
-                    print(f"  [{entry['tick']:2d}] {status_symbol} {entry['node']:30s} [{entry['type']:20s}] {entry['status']}")
+                    depth = entry.get('depth', 0)
+                    indent = "  " * depth
+                    print(f"  [{entry['tick']:2d}] {indent}{status_symbol} {entry['node']:30s} [{entry['type']:20s}] {entry['status']}")
                     if entry['details']:
-                        print(f"       └─ {entry['details']}")
+                        detail_indent = "  " * (depth + 1)
+                        print(f"       {detail_indent}└─ {entry['details']}")
 
         print("\n" + "="*80)
         logger.info("Test completed successfully")

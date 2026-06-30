@@ -2,19 +2,10 @@ import json
 import re
 import logging
 from typing import Optional
+from rdflib import Graph
 
-from openai import OpenAI
-
-from src.config import (
-    LLM_PROVIDER,
-    LLM_MODEL,
-    LLM_API_KEY,
-    MISTRAL_API_KEY,
-    MISTRAL_BASE_URL,
-    MAX_DISCOVERY_ITERATIONS,
-    ARTIFACT_REGISTRY,
-    get_llm_params,
-)
+from src.config import MAX_DISCOVERY_ITERATIONS
+from src.utils.llm_client import LLMClient
 from src.discovery.capability_model import (
     CapabilityModel,
     Artifact,
@@ -42,16 +33,9 @@ class AgenticDiscovery:
         # Initialize OpenAI client for Responses API
         # Use Mistral client with base_url if Mistral provider, otherwise use standard OpenAI
         # Add timeout for Responses API calls (in seconds)
-        if LLM_PROVIDER == "mistral":
-            self.client = OpenAI(
-                api_key=MISTRAL_API_KEY,
-                base_url=MISTRAL_BASE_URL,
-                timeout=600,  # 10 minutes max for reasoning
-            )
-        else:
-            self.client = OpenAI(api_key=LLM_API_KEY, timeout=600)
+        self.llm = LLMClient()
 
-        # Responses API tools format (flattened, no nested "function")
+        # Tool definitions (works with both Responses API and chat.completions)
         self.discovery_tools = [
             {
                 "type": "function",
@@ -148,30 +132,28 @@ class AgenticDiscovery:
         # Cache for fetched graphs
         self.graphs = {}
 
-    def discover(self, goal: str, artifact_names: list[str]) -> CapabilityModel:
+    def discover(self, goal: str) -> CapabilityModel:
         """
         Run agentic discovery loop to discover affordances from RDF graphs.
 
-        The LLM uses tool calls to navigate RDF graphs and extract action/property affordances
-        for each artifact, building up a CapabilityModel that maps artifact names to their
-        available actions and properties.
+        The LLM navigates RDF graphs from the root entry point using provided tools
+        to extract action and property affordances for artifacts involved in the goal.
 
         Uses the Responses API for all LLM calls. System prompt is passed via the
         instructions parameter, and messages contain only user and tool result roles.
 
         Args:
             goal: The achievement goal to discover affordances for
-            artifact_names: List of artifact names to discover
 
         Returns:
             CapabilityModel containing all discovered affordances and initial state
         """
-        logger.debug(f"Starting agentic discovery for artifacts: {artifact_names}")
+        logger.debug(f"Starting agentic discovery for goal: {goal}")
         capability_model = CapabilityModel(goal=goal)
 
         # Get system and user prompts from prompts.py
         system_prompt = DISCOVERY_SYSTEM_PROMPT
-        user_prompt = create_discovery_user_prompt(goal, artifact_names)
+        user_prompt = create_discovery_user_prompt(goal)
 
         # Initialize messages with user prompt only (system goes in instructions)
         messages = [
@@ -180,47 +162,22 @@ class AgenticDiscovery:
 
         for iteration in range(MAX_DISCOVERY_ITERATIONS):
             logger.debug(f"Discovery iteration {iteration + 1}/{MAX_DISCOVERY_ITERATIONS}")
-            # Get model-specific parameters
-            llm_params = get_llm_params()
 
-            # Use Responses API exclusively for all providers
-            response = self.client.responses.create(
-                model=LLM_MODEL,
-                instructions=system_prompt,
-                input=messages,
-                tools=self.discovery_tools,
-                **llm_params,
-            )
-
-            # Extract response data from Responses API
-            tool_calls = []
-            content = ""
-
-            # Iterate through output items from Responses API
-            for item in response.output:
-                item_type = type(item).__name__
-
-                # ResponseOutputMessage contains content list with text/tool calls
-                if item_type == "ResponseOutputMessage" and hasattr(item, "content"):
-                    for content_item in item.content:
-                        # Tool calls are in content as ResponseFunctionToolCall
-                        if hasattr(content_item, "name") and hasattr(content_item, "arguments"):
-                            tool_calls.append(content_item)
-                            logger.debug(f"Extracted tool call: {content_item.name}")
-                        elif hasattr(content_item, "text"):
-                            content = content_item.text
-
-                # Direct tool calls (ResponseFunctionToolCall items with name, arguments)
-                elif hasattr(item, "name") and hasattr(item, "arguments"):
-                    tool_calls.append(item)
-                    logger.debug(f"Extracted tool call: {item.name}")
+            try:
+                # Call LLM with tools (abstracts away provider differences)
+                tool_calls, content = self.llm.call_with_tools(
+                    system_prompt,
+                    messages,
+                    self.discovery_tools,
+                )
+            except KeyboardInterrupt:
+                logger.warning(f"Discovery iteration {iteration + 1}/{MAX_DISCOVERY_ITERATIONS} interrupted by user")
+                raise
 
             # Check if we're done (no tool calls remaining)
             if not tool_calls:
                 logger.debug("No tool calls in response, breaking")
                 break
-
-            logger.debug(f"Found {len(tool_calls)} tool calls to process")
 
             # Add assistant message with content if present
             if content:
@@ -240,9 +197,11 @@ class AgenticDiscovery:
                         tool_name,
                         tool_args,
                         capability_model,
-                        artifact_names,
                     )
                     logger.debug(f"{BLUE}[TOOL]{RESET} {tool_name} → completed")
+                except KeyboardInterrupt:
+                    logger.warning(f"Tool execution interrupted by user during {tool_name}")
+                    raise
                 except Exception as e:
                     error_msg = f"{YELLOW}[ERROR]{RESET} Tool execution failed for {tool_name}: {str(e)}"
                     logger.error(error_msg, exc_info=True)
@@ -263,12 +222,19 @@ class AgenticDiscovery:
 
         return capability_model
 
+    def _get_thing_uri_from_graph(self, graph: Graph) -> Optional[str]:
+        """Extract the Thing URI (with #this) from a graph."""
+        for subject in graph.subjects():
+            subject_str = str(subject)
+            if "#this" in subject_str:
+                return subject_str
+        return None
+
     def _execute_tool(
         self,
         tool_name: str,
         args: dict,
         capability_model: CapabilityModel,
-        artifact_names: list[str],
     ) -> str:
         """Execute a discovery tool and return result."""
         if tool_name == "fetch_artifact_graph":
@@ -288,7 +254,9 @@ class AgenticDiscovery:
                 return f"Graph not loaded for {artifact_name}. Call fetch_artifact_graph first."
 
             graph = self.graphs[artifact_name]
-            thing_uri = ARTIFACT_REGISTRY.get(artifact_name)
+            thing_uri = self._get_thing_uri_from_graph(graph)
+            if not thing_uri:
+                return f"Could not find Thing URI in graph for {artifact_name}"
             metadata = get_thing_description(graph, thing_uri)
             return json.dumps(metadata)
 
@@ -298,7 +266,9 @@ class AgenticDiscovery:
                 return f"Graph not loaded for {artifact_name}. Call fetch_artifact_graph first."
 
             graph = self.graphs[artifact_name]
-            thing_uri = ARTIFACT_REGISTRY.get(artifact_name)
+            thing_uri = self._get_thing_uri_from_graph(graph)
+            if not thing_uri:
+                return f"Could not find Thing URI in graph for {artifact_name}"
             actions = list_action_affordances(graph, thing_uri)
             return json.dumps(actions)
 
@@ -308,7 +278,9 @@ class AgenticDiscovery:
                 return f"Graph not loaded for {artifact_name}. Call fetch_artifact_graph first."
 
             graph = self.graphs[artifact_name]
-            thing_uri = ARTIFACT_REGISTRY.get(artifact_name)
+            thing_uri = self._get_thing_uri_from_graph(graph)
+            if not thing_uri:
+                return f"Could not find Thing URI in graph for {artifact_name}"
             properties = list_property_affordances(graph, thing_uri)
             return json.dumps(properties)
 
@@ -318,18 +290,25 @@ class AgenticDiscovery:
                 return f"Graph not loaded for {artifact_name}. Call fetch_artifact_graph first."
 
             graph = self.graphs[artifact_name]
-            thing_uri = ARTIFACT_REGISTRY.get(artifact_name)
+            thing_uri = self._get_thing_uri_from_graph(graph)
+            if not thing_uri:
+                return f"Could not find Thing URI in graph for {artifact_name}"
             location = get_location_info(graph, thing_uri)
             return json.dumps(location)
 
         elif tool_name == "done_discovering":
             # Build capability model from collected graphs
-            for artifact_name in artifact_names:
-                if artifact_name not in self.graphs:
-                    continue
+            for artifact_name, graph in self.graphs.items():
+                thing_uri = None
+                # Try to find the Thing URI from the graph's subjects
+                for subject in graph.subjects():
+                    subject_str = str(subject)
+                    if "#this" in subject_str:
+                        thing_uri = subject_str
+                        break
 
-                graph = self.graphs[artifact_name]
-                thing_uri = ARTIFACT_REGISTRY.get(artifact_name)
+                if not thing_uri:
+                    continue
 
                 # Create artifact
                 artifact = Artifact(

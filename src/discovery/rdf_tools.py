@@ -4,7 +4,7 @@ from pathlib import Path
 from rdflib import Graph, Namespace, RDF, RDFS
 from typing import Optional
 
-from src.config import EXAMPLES_DIR, ARTIFACT_REGISTRY
+from src.config import EXAMPLES_DIR
 
 # Define namespaces
 TD = Namespace("https://www.w3.org/2019/wot/td#")
@@ -19,13 +19,9 @@ CDT = Namespace("https://w3id.org/cdt/")
 
 def fetch_graph(artifact_name: str) -> Optional[Graph]:
     """
-    Fetch RDF graph for an artifact.
-    Tries remote URI first, falls back to local examples/.ttl file.
+    Fetch RDF graph for an artifact by name.
+    Tries to fetch from remote KG using standard URI pattern, falls back to local examples/.ttl file.
     """
-    if artifact_name not in ARTIFACT_REGISTRY:
-        return None
-
-    uri = ARTIFACT_REGISTRY[artifact_name]
     graph = Graph()
 
     # Bind namespaces
@@ -38,8 +34,9 @@ def fetch_graph(artifact_name: str) -> Optional[Graph]:
     graph.bind("s4syst", S4SYST)
     graph.bind("cdt", CDT)
 
-    # Try to fetch from remote
+    # Try to fetch from remote using standard artifact URI pattern
     try:
+        uri = f"https://ci.mines-stetienne.fr/kg/itmfactory/{artifact_name.lower()}#this"
         response = httpx.get(uri, timeout=5)
         response.raise_for_status()
         graph.parse(data=response.text, format="turtle")

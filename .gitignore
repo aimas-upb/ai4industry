@@ -104,3 +104,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# plan cache folder
+cache/

@@ -139,15 +139,16 @@ class IRExecutor:
             "trace": self.execution_trace,
         }
 
-    def _collect_trace(self, node: py_trees.behaviour.Behaviour, tick_num: int) -> None:
+    def _collect_trace(self, node: py_trees.behaviour.Behaviour, tick_num: int, depth: int = 0) -> None:
         """
         Recursively collect execution trace from all visited nodes.
 
-        Records node name, status, and any relevant details (e.g., action URL, condition result).
+        Records node name, status, depth level, and any relevant details (e.g., action URL, condition result).
 
         Args:
             node: The current node to trace
             tick_num: The current tick number
+            depth: Tree depth level (0 for root)
         """
         status_str = str(node.status).split(".")[-1]  # e.g., "SUCCESS", "FAILURE", "RUNNING"
 
@@ -164,9 +165,10 @@ class IRExecutor:
             "type": type(node).__name__,
             "status": status_str,
             "details": details,
+            "depth": depth,
         })
 
         # Recursively trace children for composite nodes
         if hasattr(node, "children"):
             for child in node.children:
-                self._collect_trace(child, tick_num)
+                self._collect_trace(child, tick_num, depth + 1)

@@ -97,29 +97,16 @@ Valid operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not_in`, `contains`, `
 5. Condition node `expected_value` must match the type returned by the property endpoint
 """
 
-def create_system_prompt(capability_context: str, goal_predicate: str = "") -> str:
+def create_system_prompt(capability_context: str) -> str:
     """
     Create a system prompt for the BT planner.
 
     Args:
         capability_context: Formatted discovery results (affordances and state)
-        goal_predicate: Optional goal predicate instance for explicit goal framing
 
     Returns:
         System prompt string for the LLM planner
     """
-    goal_section = ""
-    if goal_predicate:
-        goal_section = f"""
-## Goal Predicate
-
-The goal to solve is:
-    {goal_predicate}
-
-Decompose this goal into the necessary steps and map them to the available affordances below.
-
-"""
-
     return f"""You are a BehaviorTree planner for industrial manufacturing tasks.
 
 Your task: Generate a JSON BehaviorTree that solves the given goal by orchestrating the discovered affordances.
@@ -131,8 +118,6 @@ Your task: Generate a JSON BehaviorTree that solves the given goal by orchestrat
 {capability_context}
 
 ---
-
-{goal_section}
 
 ## Planning Guidance
 

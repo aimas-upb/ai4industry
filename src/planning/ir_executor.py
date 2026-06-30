@@ -112,7 +112,7 @@ class IRExecutor:
 
             # Tick the tree
             tree.tick_once()
-            status = tree.root.status
+            status = tree.status
 
             # Collect trace data for all visited nodes this tick
             self._collect_trace(tree, tick_num)

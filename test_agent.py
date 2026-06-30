@@ -23,7 +23,7 @@ GOAL_SCHEMA = "!carry(RobotName, FromLocation, ToLocation)"
 GOAL_INSTANCE = '!carry("APAS", "DX10_output", "XY10_input")'
 
 # Agent endpoint
-AGENT_URL = "http://localhost:8000/solve"
+AGENT_URL = "http://localhost:8008/solve"
 
 
 def main():

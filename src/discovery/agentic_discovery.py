@@ -3,8 +3,7 @@ import re
 import logging
 from typing import Optional
 
-import httpx
-from openai import OpenAI, AzureOpenAI
+from openai import OpenAI
 
 from src.config import (
     LLM_PROVIDER,
@@ -14,6 +13,7 @@ from src.config import (
     MISTRAL_BASE_URL,
     MAX_DISCOVERY_ITERATIONS,
     ARTIFACT_REGISTRY,
+    get_llm_params,
 )
 from src.discovery.capability_model import (
     CapabilityModel,
@@ -33,120 +33,114 @@ logger = logging.getLogger(__name__)
 
 # ANSI color codes for terminal output
 YELLOW = "\033[93m"
+BLUE = "\033[94m"
 RESET = "\033[0m"
 
 
 class AgenticDiscovery:
     def __init__(self):
+        # Initialize OpenAI client for Responses API
+        # Use Mistral client with base_url if Mistral provider, otherwise use standard OpenAI
+        # Add timeout for Responses API calls (in seconds)
         if LLM_PROVIDER == "mistral":
             self.client = OpenAI(
                 api_key=MISTRAL_API_KEY,
                 base_url=MISTRAL_BASE_URL,
+                timeout=600,  # 10 minutes max for reasoning
             )
         else:
-            self.client = OpenAI(api_key=LLM_API_KEY)
+            self.client = OpenAI(api_key=LLM_API_KEY, timeout=600)
 
+        # Responses API tools format (flattened, no nested "function")
         self.discovery_tools = [
             {
                 "type": "function",
-                "function": {
-                    "name": "fetch_artifact_graph",
-                    "description": "Fetch and load the RDF graph for an artifact",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "artifact_name": {
-                                "type": "string",
-                                "description": "Name of the artifact (e.g., APAS, DX10, XY10)",
-                            }
-                        },
-                        "required": ["artifact_name"],
+                "name": "fetch_artifact_graph",
+                "description": "Fetch and load the RDF graph for an artifact",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "artifact_name": {
+                            "type": "string",
+                            "description": "Name of the artifact (e.g., APAS, DX10, XY10)",
+                        }
                     },
+                    "required": ["artifact_name"],
                 },
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "inspect_thing_description",
-                    "description": "Get basic metadata about a Thing",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "artifact_name": {
-                                "type": "string",
-                                "description": "Name of the artifact",
-                            }
-                        },
-                        "required": ["artifact_name"],
+                "name": "inspect_thing_description",
+                "description": "Get basic metadata about a Thing",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "artifact_name": {
+                            "type": "string",
+                            "description": "Name of the artifact",
+                        }
                     },
+                    "required": ["artifact_name"],
                 },
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "list_actions",
-                    "description": "List all action affordances for an artifact",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "artifact_name": {
-                                "type": "string",
-                                "description": "Name of the artifact",
-                            }
-                        },
-                        "required": ["artifact_name"],
+                "name": "list_actions",
+                "description": "List all action affordances for an artifact",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "artifact_name": {
+                            "type": "string",
+                            "description": "Name of the artifact",
+                        }
                     },
+                    "required": ["artifact_name"],
                 },
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "list_properties",
-                    "description": "List all property affordances for an artifact",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "artifact_name": {
-                                "type": "string",
-                                "description": "Name of the artifact",
-                            }
-                        },
-                        "required": ["artifact_name"],
+                "name": "list_properties",
+                "description": "List all property affordances for an artifact",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "artifact_name": {
+                            "type": "string",
+                            "description": "Name of the artifact",
+                        }
                     },
+                    "required": ["artifact_name"],
                 },
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "get_location",
-                    "description": "Get location/coordinate information for an artifact",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "artifact_name": {
-                                "type": "string",
-                                "description": "Name of the artifact",
-                            }
-                        },
-                        "required": ["artifact_name"],
+                "name": "get_location",
+                "description": "Get location/coordinate information for an artifact",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "artifact_name": {
+                            "type": "string",
+                            "description": "Name of the artifact",
+                        }
                     },
+                    "required": ["artifact_name"],
                 },
             },
             {
                 "type": "function",
-                "function": {
-                    "name": "done_discovering",
-                    "description": "Signal that discovery is complete",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "summary": {
-                                "type": "string",
-                                "description": "Brief summary of discovered affordances",
-                            }
-                        },
-                        "required": ["summary"],
+                "name": "done_discovering",
+                "description": "Signal that discovery is complete",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "Brief summary of discovered affordances",
+                        }
                     },
+                    "required": ["summary"],
                 },
             },
         ]
@@ -162,6 +156,9 @@ class AgenticDiscovery:
         for each artifact, building up a CapabilityModel that maps artifact names to their
         available actions and properties.
 
+        Uses the Responses API for all LLM calls. System prompt is passed via the
+        instructions parameter, and messages contain only user and tool result roles.
+
         Args:
             goal: The achievement goal to discover affordances for
             artifact_names: List of artifact names to discover
@@ -172,85 +169,97 @@ class AgenticDiscovery:
         logger.debug(f"Starting agentic discovery for artifacts: {artifact_names}")
         capability_model = CapabilityModel(goal=goal)
 
-        # Build messages with system prompt from prompts.py and user prompt
+        # Get system and user prompts from prompts.py
         system_prompt = DISCOVERY_SYSTEM_PROMPT
         user_prompt = create_discovery_user_prompt(goal, artifact_names)
 
-        messages = [{"role": "user", "content": user_prompt}]
+        # Initialize messages with user prompt only (system goes in instructions)
+        messages = [
+            {"role": "user", "content": user_prompt}
+        ]
 
         for iteration in range(MAX_DISCOVERY_ITERATIONS):
             logger.debug(f"Discovery iteration {iteration + 1}/{MAX_DISCOVERY_ITERATIONS}")
-            response = self.client.chat.completions.create(
+            # Get model-specific parameters
+            llm_params = get_llm_params()
+
+            # Use Responses API exclusively for all providers
+            response = self.client.responses.create(
                 model=LLM_MODEL,
-                system=system_prompt,
-                messages=messages,
+                instructions=system_prompt,
+                input=messages,
                 tools=self.discovery_tools,
-                tool_choice="auto",
+                **llm_params,
             )
 
-            # Check if we're done
-            if response.stop_reason == "stop":
+            # Extract response data from Responses API
+            tool_calls = []
+            content = ""
+
+            # Iterate through output items from Responses API
+            for item in response.output:
+                item_type = type(item).__name__
+
+                # ResponseOutputMessage contains content list with text/tool calls
+                if item_type == "ResponseOutputMessage" and hasattr(item, "content"):
+                    for content_item in item.content:
+                        # Tool calls are in content as ResponseFunctionToolCall
+                        if hasattr(content_item, "name") and hasattr(content_item, "arguments"):
+                            tool_calls.append(content_item)
+                            logger.debug(f"Extracted tool call: {content_item.name}")
+                        elif hasattr(content_item, "text"):
+                            content = content_item.text
+
+                # Direct tool calls (ResponseFunctionToolCall items with name, arguments)
+                elif hasattr(item, "name") and hasattr(item, "arguments"):
+                    tool_calls.append(item)
+                    logger.debug(f"Extracted tool call: {item.name}")
+
+            # Check if we're done (no tool calls remaining)
+            if not tool_calls:
+                logger.debug("No tool calls in response, breaking")
                 break
 
+            logger.debug(f"Found {len(tool_calls)} tool calls to process")
+
+            # Add assistant message with content if present
+            if content:
+                messages.append({"role": "user", "content": content})
+
             # Process tool calls
-            assistant_message = {"role": "assistant", "content": response.content}
-            if response.tool_calls:
-                assistant_message["tool_calls"] = [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        },
-                    }
-                    for tc in response.tool_calls
-                ]
+            for i, tool_call in enumerate(tool_calls):
+                tool_name = tool_call.name
+                tool_args = json.loads(tool_call.arguments)
 
-            messages.append(assistant_message)
+                # Log tool call with parameters
+                args_str = json.dumps(tool_args, indent=2)
+                logger.debug(f"{BLUE}[TOOL]{RESET} ({i+1}/{len(tool_calls)}) {tool_name}\n{args_str}")
 
-            # Execute tool calls and collect results
-            tool_results = []
-            for tool_call in response.tool_calls:
-                logger.debug(f"Executing tool: {tool_call.function.name}")
                 try:
                     result = self._execute_tool(
-                        tool_call.function.name,
-                        json.loads(tool_call.function.arguments),
+                        tool_name,
+                        tool_args,
                         capability_model,
                         artifact_names,
                     )
-                    logger.debug(f"Tool {tool_call.function.name} completed successfully")
+                    logger.debug(f"{BLUE}[TOOL]{RESET} {tool_name} → completed")
                 except Exception as e:
-                    error_msg = f"{YELLOW}[ERROR]{RESET} Tool execution failed for {tool_call.function.name}: {str(e)}"
+                    error_msg = f"{YELLOW}[ERROR]{RESET} Tool execution failed for {tool_name}: {str(e)}"
                     logger.error(error_msg, exc_info=True)
                     raise
 
-                tool_results.append(
+                # Add tool result to messages for next iteration
+                messages.append(
                     {
-                        "type": "function",
-                        "function": {
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
-                        },
-                        "id": tool_call.id,
-                        "result": result,
+                        "role": "user",
+                        "content": result,
                     }
                 )
 
                 # If done_discovering, stop the loop
-                if tool_call.function.name == "done_discovering":
+                if tool_name == "done_discovering":
                     logger.debug(f"Discovery phase complete. Found {len(capability_model.artifacts)} artifacts")
                     return capability_model
-
-            # Add tool results to messages
-            if tool_results:
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": json.dumps(tool_results),
-                    }
-                )
 
         return capability_model
 

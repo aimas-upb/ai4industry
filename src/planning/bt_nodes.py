@@ -1,6 +1,7 @@
 import httpx
 import py_trees
 from typing import Any, Optional, List
+from src.config import SIMULATOR_USERNAME, SIMULATOR_PASSWORD
 
 
 class PropertyAffordanceNode(py_trees.behaviour.Behaviour):
@@ -64,7 +65,11 @@ class PropertyAffordanceNode(py_trees.behaviour.Behaviour):
             Status.FAILURE if the HTTP request failed or property is unreachable
         """
         try:
-            response = httpx.get(self.property_url, timeout=10)
+            response = httpx.get(
+                self.property_url,
+                auth=(SIMULATOR_USERNAME, SIMULATOR_PASSWORD),
+                timeout=10
+            )
             response.raise_for_status()
             self.last_value = response.json()
             self.blackboard.set(self.result_key, self.last_value)
@@ -107,6 +112,7 @@ class ActionAffordanceNode(py_trees.behaviour.Behaviour):
             response = httpx.post(
                 self.url,
                 json=self.parameters,
+                auth=(SIMULATOR_USERNAME, SIMULATOR_PASSWORD),
                 timeout=10,
             )
             response.raise_for_status()
@@ -158,7 +164,11 @@ class PropertyConditionNode(py_trees.behaviour.Behaviour):
             Status.FAILURE if property cannot be read or comparison fails
         """
         try:
-            response = httpx.get(self.url, timeout=10)
+            response = httpx.get(
+                self.url,
+                auth=(SIMULATOR_USERNAME, SIMULATOR_PASSWORD),
+                timeout=10
+            )
             response.raise_for_status()
             actual_value = response.json()
 

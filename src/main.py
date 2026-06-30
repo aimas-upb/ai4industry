@@ -10,6 +10,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Suppress verbose logging from external libraries
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 # ANSI color codes for terminal output
 YELLOW = "\033[93m"
 RESET = "\033[0m"
@@ -34,7 +39,7 @@ async def solve_goal(request: GoalRequest):
 
     try:
         agent = AgentLifecycle()
-        response = agent.solve(request.goal, request.execute)
+        response = agent.solve(request.goal, request.execute, goal_schema=request.schema)
         logger.debug(f"Goal solved successfully for: {request.goal}")
         return response
     except Exception as e:

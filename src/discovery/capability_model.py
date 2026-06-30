@@ -65,17 +65,27 @@ class CapabilityModel:
                 if "origin" in artifact.location:
                     origin = artifact.location["origin"]
                     lines.append(
-                        f"  Origin: ({origin.get('x')}, {origin.get('y')}, {origin.get('z')})"
+                        f"  Artifact Origin: ({origin.get('x')}, {origin.get('y')}, {origin.get('z')})"
                     )
-                if "output_area" in artifact.location:
-                    output = artifact.location["output_area"]
+                if "relative_input_area" in artifact.location:
+                    rel_input = artifact.location["relative_input_area"]
                     lines.append(
-                        f"  Output Area: ({output.get('x')}, {output.get('y')}, {output.get('z')})"
+                        f"  Relative Input Area: ({rel_input.get('x')}, {rel_input.get('y')}, {rel_input.get('z')})"
                     )
-                if "input_area" in artifact.location:
-                    input_area = artifact.location["input_area"]
+                if "relative_output_area" in artifact.location:
+                    rel_output = artifact.location["relative_output_area"]
                     lines.append(
-                        f"  Input Area: ({input_area.get('x')}, {input_area.get('y')}, {input_area.get('z')})"
+                        f"  Relative Output Area: ({rel_output.get('x')}, {rel_output.get('y')}, {rel_output.get('z')})"
+                    )
+                if "product_input_location" in artifact.location:
+                    input_loc = artifact.location["product_input_location"]
+                    lines.append(
+                        f"  Product Input Location: ({input_loc.get('x')}, {input_loc.get('y')}, {input_loc.get('z')})"
+                    )
+                if "product_output_location" in artifact.location:
+                    output_loc = artifact.location["product_output_location"]
+                    lines.append(
+                        f"  Product Output Location: ({output_loc.get('x')}, {output_loc.get('y')}, {output_loc.get('z')})"
                     )
 
             if artifact.current_state:

@@ -183,55 +183,63 @@ def list_property_affordances(graph: Graph, thing_uri: str) -> list[dict]:
 
 def get_location_info(graph: Graph, thing_uri: str) -> dict:
     """
-    Extract spatial info: origin coords, input/output areas.
+    Extract spatial info: artifact origin, relative areas, and absolute product locations.
+
+    Returns:
+        dict with keys:
+        - origin: artifact base coordinates (onto:hasOriginCoordinates)
+        - relative_input_area: relative coordinates of input area (onto:inputArea -> onto:relativeCoordinates)
+        - relative_output_area: relative coordinates of output area (onto:outputArea -> onto:relativeCoordinates)
+        - product_input_location: absolute coordinates where input material arrives (onto:locationOfInputMaterial)
+        - product_output_location: absolute coordinates where output product departs (onto:locationOfOutputProduct)
     """
     thing = rdflib.URIRef(thing_uri)
     location = {}
 
-    # Get origin coordinates
-    for origin in graph.objects(thing, ONTO.hasOriginCoordinates):
+    def extract_coords(node) -> dict:
+        """Extract x, y, z coordinates from a location node."""
         coords = {}
-        for x in graph.objects(origin, ONTO.coordX):
+        for x in graph.objects(node, ONTO.coordX):
             coords["x"] = float(x) if _is_number(str(x)) else str(x)
-        for y in graph.objects(origin, ONTO.coordY):
+        for y in graph.objects(node, ONTO.coordY):
             coords["y"] = float(y) if _is_number(str(y)) else str(y)
-        for z in graph.objects(origin, ONTO.coordZ):
+        for z in graph.objects(node, ONTO.coordZ):
             coords["z"] = float(z) if _is_number(str(z)) else str(z)
+        return coords
+
+    # Get artifact origin coordinates
+    for origin in graph.objects(thing, ONTO.hasOriginCoordinates):
+        coords = extract_coords(origin)
         if coords:
             location["origin"] = coords
 
-    # Get output area coordinates
-    for output_area in graph.objects(thing, ONTO.outputArea):
-        output_info = {}
-        # Check for locationOfOutputProduct
-        for loc in graph.objects(output_area, ONTO.locationOfOutputProduct):
-            coords = {}
-            for x in graph.objects(loc, ONTO.coordX):
-                coords["x"] = float(x) if _is_number(str(x)) else str(x)
-            for y in graph.objects(loc, ONTO.coordY):
-                coords["y"] = float(y) if _is_number(str(y)) else str(y)
-            for z in graph.objects(loc, ONTO.coordZ):
-                coords["z"] = float(z) if _is_number(str(z)) else str(z)
-            if coords:
-                output_info["coordinates"] = coords
-        if output_info:
-            location["output_area"] = output_info
-
-    # Get input area coordinates
+    # Get relative input area coordinates
     for input_area in graph.objects(thing, ONTO.inputArea):
-        input_info = {}
-        for loc in graph.objects(input_area, ONTO.locationOfInputMaterial):
-            coords = {}
-            for x in graph.objects(loc, ONTO.coordX):
-                coords["x"] = float(x) if _is_number(str(x)) else str(x)
-            for y in graph.objects(loc, ONTO.coordY):
-                coords["y"] = float(y) if _is_number(str(y)) else str(y)
-            for z in graph.objects(loc, ONTO.coordZ):
-                coords["z"] = float(z) if _is_number(str(z)) else str(z)
+        for rel_coords in graph.objects(input_area, ONTO.relativeCoordinates):
+            coords = extract_coords(rel_coords)
             if coords:
-                input_info["coordinates"] = coords
-        if input_info:
-            location["input_area"] = input_info
+                location["relative_input_area"] = coords
+                break
+
+    # Get relative output area coordinates
+    for output_area in graph.objects(thing, ONTO.outputArea):
+        for rel_coords in graph.objects(output_area, ONTO.relativeCoordinates):
+            coords = extract_coords(rel_coords)
+            if coords:
+                location["relative_output_area"] = coords
+                break
+
+    # Get absolute product input location
+    for input_loc in graph.objects(thing, ONTO.locationOfInputMaterial):
+        coords = extract_coords(input_loc)
+        if coords:
+            location["product_input_location"] = coords
+
+    # Get absolute product output location
+    for output_loc in graph.objects(thing, ONTO.locationOfOutputProduct):
+        coords = extract_coords(output_loc)
+        if coords:
+            location["product_output_location"] = coords
 
     return location
 

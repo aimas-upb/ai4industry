@@ -1,0 +1,262 @@
+
+@prefix : <https://ci.mines-stetienne.fr/kg/itmfactory/xy10/> .
+@prefix cdt: <https://w3id.org/cdt/> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix jsonschema: <https://www.w3.org/2019/wot/json-schema#> .
+@prefix onto: <https://ci.mines-stetienne.fr/kg/ontology#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix s4syst: <https://saref.etsi.org/saref4syst/> .
+@prefix schema: <http://schema.org/> .
+@prefix siren: <http://rdf.insee.fr/siren/> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix ssn: <http://www.w3.org/ns/ssn/> .
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix wotsec: <https://www.w3.org/2019/wot/security#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://ci.mines-stetienne.fr/kg/itmfactory/xy10/> rdfs:label "Description of the XY10 in Mines Saint-Étienne."@en .
+
+<https://ci.mines-stetienne.fr/kg/itmfactory/xy10#this> dct:description "XY10 packaging workshop" ;
+schema:manufacturer siren:353183601 ;
+rdf:type <http://www.productontology.org/id/Packaging_machinery> ,
+sosa:Platform ,
+td:Thing ;
+rdfs:comment "Packaging machine"@en ,
+"Système de placement de pots/flacons dans des barquettes et de pièces sur des boîtes/palettes"@fr ;
+rdfs:label "Robot cartésien XYZ"@fr ;
+geo:location <https://ci.mines-stetienne.fr/emse/fayol/RDC/012> ;
+sosa:hosts <https://ci.mines-stetienne.fr/kg/itmfactory/xy10/B14.1> ,
+:B18 ,
+:B22 ,
+:B16 ,
+:B5 ,
+:B11 ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/xy10/B14.2> ,
+:B3 ,
+:B17 ,
+:B21 ,
+:B15 ,
+:B9 ,
+:B7 ,
+:B4 ,
+:B10 ,
+:B2 ,
+:B1 ,
+:B19 ,
+:B20 ,
+:B8 ,
+:B6 ,
+:B12 ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/xy10/emergency-stop-button#this> ,
+:M3 ,
+:M1 ,
+:M4 ,
+:M2 ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/xy10/signal-light-column#this> ;
+ssn:hasProperty <https://ci.mines-stetienne.fr/kg/itmfactory/xy10/conveyor/downstream-presence#this> ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/xy10/conveyor/upstream-presence#this> ;
+onto:hasOriginCoordinates [
+onto:angleToXYPlane "0 deg"^^cdt:ucum ;
+onto:coordX 3.2 ;
+onto:coordY 0 ;
+onto:coordZ 1 ;
+onto:relativeTo <https://ci.mines-stetienne.fr/kg/itmfactory/itm#this> ;
+onto:xyAngle "0 deg"^^cdt:ucum
+] ;
+onto:hasThingDescription <https://ci.mines-stetienne.fr/simu/packagingWorkshop> ;
+onto:inputArea [
+rdf:type onto:ProductManagementArea ,
+s4syst:ConnectionPoint ;
+ssn:hasProperty <https://ci.mines-stetienne.fr/kg/itmfactory/xy10/conveyor/upstream-presence#this> ;
+onto:relativeCoordinates [
+onto:angleToXYPlane "0 deg"^^cdt:ucum ;
+onto:coordX 0 ;
+onto:coordY 0 ;
+onto:coordZ 0 ;
+onto:relativeTo <https://ci.mines-stetienne.fr/kg/itmfactory/xy10/#this> ;
+onto:xyAngle "0 deg"^^cdt:ucum
+]
+] ;
+onto:locationOfInputMaterial [
+onto:coordX 3.2 ;
+onto:coordY 0 ;
+onto:coordZ 1
+] ;
+onto:locationOfOutputProduct [
+onto:coordX 4.4 ;
+onto:coordY 0 ;
+onto:coordZ 0.9
+] ;
+onto:outputArea [
+rdf:type onto:ProductManagementArea ,
+s4syst:ConnectionPoint ;
+onto:relativeCoordinates [
+onto:angleToXYPlane "0 deg"^^cdt:ucum ;
+onto:coordX 1.2 ;
+onto:coordY 0 ;
+onto:coordZ -0.1 ;
+onto:relativeTo <https://ci.mines-stetienne.fr/kg/itmfactory/xy10/#this> ;
+onto:xyAngle "0 deg"^^cdt:ucum
+]
+] ;
+td:hasActionAffordance [
+dct:description "turns off all active components of the machine" ;
+rdf:type onto:StopInEmergencyAction ,
+td:ActionAffordance ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "POST" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:invokeAction ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/actions/pressEmergencyStop>
+] ;
+td:isIdempotent "false"^^xsd:boolean ;
+td:isSafe "false"^^xsd:boolean ;
+td:name "pressEmergencyStop" ;
+td:title "Press Emergency Stop"
+] ;
+td:hasForm [
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readAllProperties ,
+td:readMultipleProperties ,
+td:writeAllProperties ,
+td:writeMultipleProperties ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/all/properties>
+] ;
+td:hasPropertyAffordance [
+dct:description "Reads and writes the speed (X axis) of the conveyor belt (in meters/second)." ;
+rdf:type onto:ConveyorSpeed ,
+jsonschema:NumberSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "false"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ,
+td:writeProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/properties/conveyorSpeed>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "conveyorSpeed" ;
+td:title "Conveyor Speed"
+] ,
+[
+dct:description "number of packages in storage" ;
+rdf:type onto:Count ,
+jsonschema:NumberSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/properties/packageBuffer>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "packageBuffer" ;
+td:title "Package Buffer"
+] ,
+[
+rdf:type onto:StackLightStatus ,
+jsonschema:StringSchema ,
+td:PropertyAffordance ;
+jsonschema:enum "green" ,
+"red" ,
+"yellow" ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/properties/stackLightStatus>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "stackLightStatus" ;
+td:title "Stack Light Status"
+] ,
+[
+dct:description "indicates whether a container is on the conveyor, in first position" ;
+rdf:type onto:OpticalSensorStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/properties/opticalSensorContainer1>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "opticalSensorContainer1" ;
+td:title "Optical Sensor Container 1"
+] ,
+[
+dct:description "indicates whether a package is on the conveyor" ;
+rdf:type onto:OpticalSensorStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/properties/opticalSensorPackage>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "opticalSensorPackage" ;
+td:title "Optical Sensor Package"
+] ,
+[
+dct:description "indicates whether a container is on the conveyor, in second position" ;
+rdf:type onto:OpticalSensorStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/properties/opticalSensorContainer2>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "opticalSensorContainer2" ;
+td:title "Optical Sensor Container 2"
+] ,
+[
+dct:description "indicates whether an object is detected on the head of the conveyor belt" ;
+rdf:type onto:OpticalSensorStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+ssn:forProperty <https://ci.mines-stetienne.fr/kg/itmfactory/xy10/conveyor/downstream-presence#this> ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/packagingWorkshop/properties/conveyorHeadStatus>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "conveyorHeadStatus" ;
+td:title "Conveyor Head Status"
+] ;
+td:hasSecurityConfiguration [
+rdf:type wotsec:BasicSecurityScheme
+] ;
+td:title "packagingWorkshop" .

@@ -1,0 +1,254 @@
+
+@prefix : <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/> .
+@prefix cdt: <https://w3id.org/cdt/> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix jsonschema: <https://www.w3.org/2019/wot/json-schema#> .
+@prefix onto: <https://ci.mines-stetienne.fr/kg/ontology#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix s4syst: <https://saref.etsi.org/saref4syst/> .
+@prefix schema: <http://schema.org/> .
+@prefix siren: <http://rdf.insee.fr/siren/> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix ssn: <http://www.w3.org/ns/ssn/> .
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix wotsec: <https://www.w3.org/2019/wot/security#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/> rdfs:label "Description of the Dosaxe DX10 in Mines Saint-Étienne."@en .
+
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10#this> dct:description "DX10 filling workshop with a Cartesian robot, a filler (with a magnetic valve) attached to the Cartesian robot and a conveyor belt. The machine is configured such that: 1) once the optical sensor at the start of the belt detects an item, the magnetic valve of the filler opens and the Cartesian robot starts to move along the X axis (at the speed of the belt) above the item. 2) Once a preconfigured amount of product has been poured by the filler, the valve closes and the robot returns to its initial X coordinate at maximum speed while the item keeps moving towards the end of the conveyor." ;
+schema:manufacturer siren:353183601 ;
+rdf:type <http://www.productontology.org/id/Filler_(packaging)> ,
+sosa:Platform ,
+onto:DosaxeDX10 ,
+td:Thing ;
+rdfs:comment "Brushless axis dosing machine"@en ,
+"Le système Dosaxe est un système automatisé de remplissage dit « à la volée » de pots/flacons ou boîtes/palettes de différents formats dans le cadre d’une production continue. Il est issu d’une véritable machine industrielle utilisée dans l’industrie agroalimentaire, pharmaceutique ou cosmétique (Pots/flacons) ou l’industrie d’assemblage (Boîtes/palettes). Ce système automatisé peut être utilisé en toute autonomie avec par exemple des pots/flacons ou des boîtes/palettes ou au sein de la ligne de production flexible ErmaSmart."@fr ;
+rdfs:label "Dosaxe DX10" ;
+geo:location <https://ci.mines-stetienne.fr/emse/fayol/RDC/012> ;
+sosa:hosts :B3 ,
+:B4 ,
+:B5 ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/emergency-stop-button#this> ,
+:M2 ,
+:M1 ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/plc#this> ,
+:S4 ,
+:S5 ,
+:S3 ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/signal-light-column#this> ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/v20#this> ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/v90#this> ;
+ssn:hasProperty <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/conveyor/downstream-presence#this> ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/conveyor/upstream-presence#this> ,
+<https://ci.mines-stetienne.fr/kg/itmfactory/dx10/silo/tank-level#this> ;
+onto:hasOriginCoordinates [
+onto:angleToXYPlane "0 deg"^^cdt:ucum ;
+onto:coordX 1.2 ;
+onto:coordY 0 ;
+onto:coordZ 1 ;
+onto:relativeTo <https://ci.mines-stetienne.fr/kg/itmfactory/itm#this> ;
+onto:xyAngle "0 deg"^^cdt:ucum
+] ;
+onto:hasThingDescription <https://ci.mines-stetienne.fr/simu/fillingWorkshop> ;
+onto:inputArea [
+rdf:type onto:ProductManagementArea ,
+s4syst:ConnectionPoint ;
+ssn:hasProperty <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/conveyor/upstream-presence#this> ;
+onto:relativeCoordinates [
+onto:angleToXYPlane "0 deg"^^cdt:ucum ;
+onto:coordX 0 ;
+onto:coordY 0 ;
+onto:coordZ 0 ;
+onto:relativeTo <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/#this> ;
+onto:xyAngle "0 deg"^^cdt:ucum
+] ;
+s4syst:connectedThrough <https://ci.mines-stetienne.fr/kg/itmfactory/vl10-dx10#this>
+] ;
+onto:locationOfInputMaterial [
+onto:coordX 1 ;
+onto:coordY 0 ;
+onto:coordZ 1
+] ;
+onto:locationOfOutputProduct [
+onto:coordX 2.2 ;
+onto:coordY 0 ;
+onto:coordZ 1
+] ;
+onto:outputArea [
+rdf:type onto:ProductManagementArea ,
+s4syst:ConnectionPoint ;
+ssn:hasProperty <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/conveyor/downstream-presence#this> ;
+onto:relativeCoordinates [
+onto:angleToXYPlane "0 deg"^^cdt:ucum ;
+onto:coordX 1.2 ;
+onto:coordY 0 ;
+onto:coordZ 0 ;
+onto:relativeTo <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/#this> ;
+onto:xyAngle "0 deg"^^cdt:ucum
+]
+] ;
+td:hasActionAffordance [
+dct:description "Turns off all active components of the machine: It sets the conveyor speed to 0, it restarts the stack light sensor, it closes the filler`s magnetic valve, and it returns the Cartesian robot (and the attached filler) to its home position at the start of the belt." ;
+rdf:type onto:StopInEmergencyAction ,
+td:ActionAffordance ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "POST" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:invokeAction ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/actions/pressEmergencyStop>
+] ;
+td:isIdempotent "false"^^xsd:boolean ;
+td:isSafe "false"^^xsd:boolean ;
+td:name "pressEmergencyStop" ;
+td:title "Press Emergency Stop"
+] ;
+td:hasForm [
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readAllProperties ,
+td:readMultipleProperties ,
+td:writeAllProperties ,
+td:writeMultipleProperties ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/all/properties>
+] ;
+td:hasPropertyAffordance [
+dct:description "Reads the status of the magnetic valve which controls the product flow of the tank. When the status is true, product (e.g. yogurt) is flowing from the tank to an item (e.g. a container)." ;
+rdf:type onto:ValveStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/properties/magneticValveStatus>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "magneticValveStatus" ;
+td:title "Magnetic Valve Status"
+] ,
+[
+dct:description "Reads the position of the Cartesian motor on the X axis (in meters)." ;
+rdf:type onto:XCoordinate ,
+jsonschema:NumberSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/properties/positionX>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "positionX" ;
+td:title "Position X"
+] ,
+[
+dct:description "Reads the status of the optical sensor that detects whether an item is positioned at the start of the conveyor belt under the filler." ;
+rdf:type onto:OpticalSensorStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+ssn:forProperty <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/conveyor/upstream-presence#this> ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/properties/opticalSensorStatus>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "opticalSensorStatus" ;
+td:title "Optical Sensor Status"
+] ,
+[
+dct:description "Reads and writes the speed (X axis) of the conveyor belt (and the Cartesian robot that moves along the belt) (in meters/sec). The maximum speed is 0.75 meters/sec." ;
+rdf:type onto:ConveyorSpeed ,
+jsonschema:NumberSchema ,
+td:PropertyAffordance ;
+ssn:forProperty <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/conveyor/speed#this> ;
+jsonschema:readOnly "false"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ,
+td:writeProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/properties/conveyorSpeed>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "conveyorSpeed" ;
+td:title "Conveyor Speed"
+] ,
+[
+rdf:type onto:StackLightStatus ,
+jsonschema:StringSchema ,
+td:PropertyAffordance ;
+jsonschema:enum "green" ,
+"red" ,
+"yellow" ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/properties/stackLightStatus>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "stackLightStatus" ;
+td:title "Stack Light Status"
+] ,
+[
+dct:description "Reads the quantity of product in the tank (in liters)." ;
+rdf:type onto:LiquidVolume ,
+jsonschema:NumberSchema ,
+td:PropertyAffordance ;
+ssn:forProperty <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/silo/tank-level#this> ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/properties/tankLevel>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "tankLevel" ;
+td:title "Tank Level"
+] ,
+[
+dct:description "Reads the status of the optical sensor that detects whether an item is positioned at the end of the conveyor belt." ;
+rdf:type onto:OpticalSensorStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+ssn:forProperty <https://ci.mines-stetienne.fr/kg/itmfactory/dx10/conveyor/downstream-presence#this> ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/fillingWorkshop/properties/conveyorHeadStatus>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "conveyorHeadStatus" ;
+td:title "Conveyor Head Status"
+] ;
+td:hasSecurityConfiguration [
+rdf:type wotsec:BasicSecurityScheme
+] ;
+td:title "fillingWorkshop" .

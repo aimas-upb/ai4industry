@@ -1,0 +1,193 @@
+
+@prefix : <https://ci.mines-stetienne.fr/kg/itmfactory/bosch-apas#> .
+@prefix cdt: <https://w3id.org/cdt/> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix jsonschema: <https://www.w3.org/2019/wot/json-schema#> .
+@prefix onto: <https://ci.mines-stetienne.fr/kg/ontology#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <http://schema.org/> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix wotsec: <https://www.w3.org/2019/wot/security#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://ci.mines-stetienne.fr/kg/itmfactory/bosch-apas> rdfs:label "Description of the Bosch APAS in Saint-Étienne."@en .
+
+:this schema:manufacturer <http://dbpedia.org/resource/Robert_Bosch_GmbH> ;
+rdf:type sosa:Platform ,
+<https://ci.mines-stetienne.fr/kg/ontology#Bosch-APAS> ,
+td:Thing ;
+rdfs:comment "Robotic arm from Bosch Gmbh, in the IT’m Factory"@en ;
+rdfs:label "APAS" ;
+geo:location <https://ci.mines-stetienne.fr/emse/fayol/RDC/012> ;
+onto:hasOriginCoordinates [
+onto:angleToXYPlane "0 deg"^^cdt:ucum ;
+onto:coordX 2.7 ;
+onto:coordY -0.5 ;
+onto:coordZ 0.8 ;
+onto:relativeTo <https://ci.mines-stetienne.fr/kg/itmfactory/itm#this> ;
+onto:xyAngle "0 deg"^^cdt:ucum
+] ;
+onto:hasThingDescription <https://ci.mines-stetienne.fr/simu/robotArm> ;
+onto:maximumReach 2 ;
+td:hasActionAffordance [
+dct:description "Turns off all active components of the machine: It restarts the stack light sensor, it opens the gripper, and it cancels on-going movement tasks." ;
+rdf:type onto:StopInEmergencyAction ,
+td:ActionAffordance ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "POST" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:invokeAction ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/actions/pressEmergencyStop>
+] ;
+td:isIdempotent "false"^^xsd:boolean ;
+td:isSafe "false"^^xsd:boolean ;
+td:name "pressEmergencyStop" ;
+td:title "Press Emergency Stop"
+] ,
+[
+dct:description "Closes the gripper to grasp the item that is right under the robot arm's hand. The grasping is performed only if the gripper is currently open." ;
+rdf:type onto:GraspAction ,
+td:ActionAffordance ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "POST" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:invokeAction ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/actions/grasp>
+] ;
+td:hasOutputSchema [
+rdf:type jsonschema:BooleanSchema
+] ;
+td:isIdempotent "false"^^xsd:boolean ;
+td:isSafe "false"^^xsd:boolean ;
+td:name "grasp" ;
+td:title "Grasp"
+] ,
+[
+dct:description "Moves the robot arm`s hand on the XYZ coordinate system." ;
+rdf:type onto:MoveFromToAction ,
+td:ActionAffordance ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "POST" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:invokeAction ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/actions/moveTo>
+] ;
+td:hasInputSchema [
+rdf:type jsonschema:ObjectSchema ;
+jsonschema:properties [
+rdf:type jsonschema:NumberSchema ;
+jsonschema:propertyName "z"
+] ,
+[
+rdf:type jsonschema:NumberSchema ;
+jsonschema:propertyName "y"
+] ,
+[
+rdf:type jsonschema:NumberSchema ;
+jsonschema:propertyName "x"
+] ;
+jsonschema:required "x" ,
+"y" ,
+"z"
+] ;
+td:hasOutputSchema [
+rdf:type jsonschema:BooleanSchema
+] ;
+td:isIdempotent "false"^^xsd:boolean ;
+td:isSafe "false"^^xsd:boolean ;
+td:name "moveTo" ;
+td:title "Move To"
+] ,
+[
+dct:description "Opens the gripper to release an item." ;
+rdf:type onto:ReleaseAction ,
+td:ActionAffordance ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "POST" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:invokeAction ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/actions/release>
+] ;
+td:hasOutputSchema [
+rdf:type jsonschema:BooleanSchema
+] ;
+td:isIdempotent "false"^^xsd:boolean ;
+td:isSafe "false"^^xsd:boolean ;
+td:name "release" ;
+td:title "Release"
+] ;
+td:hasForm [
+rdf:type hctl:Form ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readAllProperties ,
+td:readMultipleProperties ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/all/properties>
+] ;
+td:hasPropertyAffordance [
+dct:description "Reads the grasping status of the robot. The status is true if gripper is closed. The status is false if the gripper is open." ;
+rdf:type onto:ActivityStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/properties/grasping>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "grasping" ;
+td:title "Grasping"
+] ,
+[
+dct:description "Status of the stack lights, indicating the machine's status." ;
+rdf:type td:PropertyAffordance ;
+jsonschema:enum "green" ,
+"red" ,
+"yellow" ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/properties/stackLightStatus>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "stackLightStatus" ;
+td:title "Stack Light Status"
+] ,
+[
+dct:description "Reads the movement status of the robot. The status is true if the robot is in movement." ;
+rdf:type onto:ActivityStatus ,
+jsonschema:BooleanSchema ,
+td:PropertyAffordance ;
+jsonschema:readOnly "true"^^xsd:boolean ;
+jsonschema:writeOnly "false"^^xsd:boolean ;
+td:hasForm [
+rdf:type hctl:Form ;
+http:methodName "GET" ;
+hctl:forContentType "application/json" ;
+hctl:hasOperationType td:readProperty ;
+hctl:hasTarget <https://ci.mines-stetienne.fr/simu/robotArm/properties/inMovement>
+] ;
+td:isObservable "false"^^xsd:boolean ;
+td:name "inMovement" ;
+td:title "In Movement"
+] ;
+td:hasSecurityConfiguration [
+rdf:type wotsec:BasicSecurityScheme
+] ;
+td:title "bosch-apas" .

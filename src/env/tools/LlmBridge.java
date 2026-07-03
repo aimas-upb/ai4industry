@@ -7,9 +7,12 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import cartago.Artifact;
 import cartago.OPERATION;
+import cartago.INTERNAL_OPERATION;
 
 /**
  * Artifact that implements the auction.
@@ -25,9 +28,13 @@ public class LlmBridge extends Artifact {
 	 */
 	public static int		SERVER_PORT;
 	/**
-	 * endpoint for the server route
+	 * endpoint for the server route -- the solve service
 	 */
 	public static String	SOLVE_SERVICE;
+	/**
+	 * endpoint for the server route -- getting the status
+	 */
+	public static String	STATUS_SERVICE;
 	/**
 	 * parameter for the input data
 	 */
@@ -37,12 +44,20 @@ public class LlmBridge extends Artifact {
 		SERVER_URL = "http://localhost";
 		SERVER_PORT = 5565;
 		SOLVE_SERVICE = "solve";
+		STATUS_SERVICE = "status";
 		INPUT_DATA_PARAM = "input_data";
 	}
+	
+	public static String RESULT_PROPERTY_NAME = "llmResult";
+	protected static final long	CHECK_PERIOD_MS	= 2000L;
+	protected Timer				timer;
+	protected static int N_RETRIES = 3;
+	protected int retries_left = 0;
 	
 	void init() {
 		// optional setup logic when the artifact is created
 		log("LLM Bridge artifact up.");
+		defineObsProperty(RESULT_PROPERTY_NAME, "");
 	}
 	
 	@OPERATION
@@ -58,7 +73,58 @@ public class LlmBridge extends Artifact {
 			// Check the response
 			String response = checkResponse(connection);
 			if(response != null) {
-				System.out.println("Response: " + response);
+				System.out.println("Response: OK. Starting timer.");
+				getObsProperty(RESULT_PROPERTY_NAME).updateValue("");
+				retries_left = N_RETRIES;
+				startCheckTimer();
+			}
+			else
+				System.out.println("Response: Error");
+		} catch(Exception e) {
+			System.out.println("Exception: " + e.getMessage());
+		}
+	}
+	
+	protected void startCheckTimer() {
+		stopCheckTimer(); // avoid duplicate timers if solve() is called again
+		
+		timer = new Timer(true); // daemon thread
+		timer.scheduleAtFixedRate(new TimerTask() {
+			@Override
+			public void run() {
+				// hop back onto the artifact's own thread to touch state safely
+				execInternalOp("checkResult");
+			}
+		}, CHECK_PERIOD_MS, CHECK_PERIOD_MS);
+	}
+	
+	private void stopCheckTimer() {
+		if(timer != null) {
+			timer.cancel();
+			timer = null;
+		}
+	}
+	
+	@INTERNAL_OPERATION
+	void checkResult() {
+		try {
+			System.out.println("Checking response...");
+			// Set up the connection
+			HttpURLConnection connection = setupConnection(STATUS_SERVICE, "POST", new HashMap<>());
+			// Check the response
+			String response = checkResponse(connection);
+			if(response != null) {
+				System.out.println("Response received.");
+				getObsProperty(RESULT_PROPERTY_NAME).updateValue(response);
+				stopCheckTimer();
+			}
+			else {
+				System.out.println("Response: Error");
+				retries_left--;
+				if(retries_left <= 0) {
+					System.out.println("Stopped waiting for result.");
+					stopCheckTimer();
+				}
 			}
 		} catch(Exception e) {
 			System.out.println("Exception: " + e.getMessage());
@@ -109,6 +175,7 @@ public class LlmBridge extends Artifact {
 			String response = "";
 			int responseCode = connection.getResponseCode();
 			boolean iserror = responseCode >= 400;
+			boolean isOK = responseCode == 200;
 			try (BufferedReader in = new BufferedReader(
 					new InputStreamReader(!iserror ? connection.getInputStream() : connection.getErrorStream()))) {
 				String line;
@@ -120,7 +187,7 @@ public class LlmBridge extends Artifact {
 							+ response);
 				else
 					System.out.println("Response: " + response);
-				return !iserror ? response : null;
+				return !iserror && isOK ? response : null;
 			}
 			
 		} catch(IOException e) {

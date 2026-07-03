@@ -17,3 +17,7 @@
     focus(LLMB);
     solve
    .
+
++llmResult(Result)
+  <-
+    .print("llm result changed to: ", Result).

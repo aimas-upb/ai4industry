@@ -42,8 +42,8 @@ MANIFEST
 
 # Virtual environments
 venv/
-ENV/
-env/
+/ENV/
+/env/
 .venv
 
 # Poetry
@@ -107,3 +107,10 @@ dmypy.json
 
 # plan cache folder
 cache/
+/bin/
+/.classpath
+/.pydevproject
+/.project
+.gradle
+ignored/
+

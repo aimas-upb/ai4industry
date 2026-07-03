@@ -6,3 +6,6 @@ py_trees==2.2.3
 pydantic==2.5.0
 httpx==0.25.1
 python-dotenv==1.0.0
+
+# llm bridge
+flask

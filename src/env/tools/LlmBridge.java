@@ -61,12 +61,12 @@ public class LlmBridge extends Artifact {
 	}
 	
 	@OPERATION
-	void solve() {
+	void solve(String goal) {
 		try {
 			System.out.println("Solving...");
 			// Create the request data
 			Map<String, String> postData = new HashMap<>();
-			postData.put(INPUT_DATA_PARAM, "test");
+			postData.put(INPUT_DATA_PARAM, goal);
 			
 			// Set up the connection
 			HttpURLConnection connection = setupConnection(SOLVE_SERVICE, "POST", postData);

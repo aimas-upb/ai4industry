@@ -15,7 +15,7 @@
    <-     
     makeArtifact("llmBridge", "LlmBridge", [], LLMB);
     focus(LLMB);
-    solve
+    solve("!carry(\"APAS\", \"DX10_output\", \"XY10_input\")")
    .
 
 +llmResult(Result)

@@ -31,6 +31,7 @@ def solve():
         # ret = flask.jsonify(response)
         # log("returned", ret)
         # return ret
+        print("solving with input_data", input_data)
         status = "result"
         return "ok", 200
     except Exception as e:

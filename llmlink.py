@@ -109,9 +109,16 @@ def solve():
 
 @app.route('/' + STATUS_SERVICE, methods=['POST'])
 def status():
+    global status
     if status is None:
         return flask.jsonify(status="processing"), 202
     return status, 200
+
+
+@app.route('/' + STATUS_SERVICE, methods=['PUT'])
+def update_status(new_status):
+    global status
+    status = new_status
 
 print(app.url_map)
 app.run(port = SERVER_PORT)

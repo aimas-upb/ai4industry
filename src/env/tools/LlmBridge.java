@@ -110,7 +110,7 @@ public class LlmBridge extends Artifact {
 		try {
 			System.out.println("Checking response...");
 			// Set up the connection
-			HttpURLConnection connection = setupConnection(STATUS_SERVICE, "POST", new HashMap<>());
+			HttpURLConnection connection = setupConnection(STATUS_SERVICE, "GET", new HashMap<>());
 			// Check the response
 			String response = checkResponse(connection);
 			if(response != null) {

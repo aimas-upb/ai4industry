@@ -107,7 +107,7 @@ def solve():
          logE(f'Exception {e}.')
          return flask.jsonify({'error': f'Exception {e}.'}), 500
 
-@app.route('/' + STATUS_SERVICE, methods=['POST'])
+@app.route('/' + STATUS_SERVICE, methods=['GET'])
 def status():
     global status
     if status is None:

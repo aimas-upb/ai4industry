@@ -3,7 +3,7 @@ uvicorn[standard]==0.24.0
 rdflib==7.0.0
 openai==2.16.0
 py_trees==2.2.3
-pydantic==2.5.0
+pydantic>=2.5.0
 httpx==0.25.1
 python-dotenv==1.0.0
 

@@ -11,7 +11,7 @@ from src.discovery.capability_model import (
     Artifact,
     Affordance,
 )
-from src.discovery.rdf_tools import (
+from src.discovery.td_tools import (
     fetch_graph,
     get_thing_description,
     list_action_affordances,

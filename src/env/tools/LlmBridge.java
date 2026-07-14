@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -10,9 +11,13 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
+
 import cartago.Artifact;
-import cartago.OPERATION;
 import cartago.INTERNAL_OPERATION;
+import cartago.OPERATION;
 
 /**
  * Artifact that implements the auction.
@@ -53,6 +58,7 @@ public class LlmBridge extends Artifact {
 	protected Timer				timer;
 	protected static int N_RETRIES = 3;
 	protected int retries_left = 0;
+	protected String currentRequestUri = null; // URI of the current request status resource
 	
 	void init() {
 		// optional setup logic when the artifact is created
@@ -67,16 +73,23 @@ public class LlmBridge extends Artifact {
 			// Create the request data
 			Map<String, String> postData = new HashMap<>();
 			postData.put(INPUT_DATA_PARAM, goal);
-			
+
 			// Set up the connection
 			HttpURLConnection connection = setupConnection(SOLVE_SERVICE, "POST", postData);
-			// Check the response
-			String response = checkResponse(connection);
+			// Check the response (expects 202 with request_uri in JSON)
+			String response = checkResponseWithCode(connection);
 			if(response != null) {
 				System.out.println("Response: OK. Starting timer.");
-				getObsProperty(RESULT_PROPERTY_NAME).updateValue("");
-				retries_left = N_RETRIES;
-				startCheckTimer();
+				// Parse request_uri from JSON response: {"request_uri": "...", ...}
+				currentRequestUri = extractRequestUri(response);
+				if(currentRequestUri != null) {
+					System.out.println("Request URI: " + currentRequestUri);
+					getObsProperty(RESULT_PROPERTY_NAME).updateValue("");
+					retries_left = N_RETRIES;
+					startCheckTimer();
+				} else {
+					System.out.println("Error: Could not extract request_uri from response");
+				}
 			}
 			else
 				System.out.println("Response: Error");
@@ -108,15 +121,34 @@ public class LlmBridge extends Artifact {
 	@INTERNAL_OPERATION
 	void checkResult() {
 		try {
+			if(currentRequestUri == null) {
+				System.out.println("Error: No current request URI. Stopping timer.");
+				stopCheckTimer();
+				return;
+			}
+
 			System.out.println("Checking response...");
-			// Set up the connection
-			HttpURLConnection connection = setupConnection(STATUS_SERVICE, "GET", new HashMap<>());
+			// GET the status resource using the request URI
+			URL url = new URL(currentRequestUri);
+			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			connection.setRequestMethod("GET");
+			connection.setRequestProperty("Content-Type", "application/json");
+			connection.setDoOutput(false);
+
 			// Check the response
 			String response = checkResponse(connection);
 			if(response != null) {
 				System.out.println("Response received.");
-				getObsProperty(RESULT_PROPERTY_NAME).updateValue(response);
-				stopCheckTimer();
+				// Extract execution_result status from the response JSON
+				String status = extractExecutionResult(response);
+				if(status != null && (status.equals("SUCCESS") || status.equals("FAILURE") || status.equals("TIMEOUT"))) {
+					// Terminal status reached - update property and stop polling
+					getObsProperty(RESULT_PROPERTY_NAME).updateValue(response);
+					stopCheckTimer();
+				} else {
+					// Still running or just received initial response - keep polling
+					System.out.println("Request still " + (status != null ? status : "processing"));
+				}
 			}
 			else {
 				System.out.println("Response: Error");
@@ -165,7 +197,7 @@ public class LlmBridge extends Artifact {
 	 *
 	 * @param connection
 	 *            The connection to the server
-	 * 			
+	 *
 	 * @return The response from the server, if the response code is OK. Null otherwise
 	 */
 	protected static String checkResponse(HttpURLConnection connection) {
@@ -189,11 +221,89 @@ public class LlmBridge extends Artifact {
 					System.out.println("Response: " + response);
 				return !iserror && isOK ? response : null;
 			}
-			
+
 		} catch(IOException e) {
 			System.out.println("Error: " + e.getMessage() + " | ");
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	/**
+	 * Check response and return the raw response body regardless of HTTP status code.
+	 * Used for parsing 202 Accepted responses which contain JSON with request_uri.
+	 *
+	 * @param connection The connection to the server
+	 * @return The response body, or null on error
+	 */
+	protected static String checkResponseWithCode(HttpURLConnection connection) {
+		if(connection == null)
+			return null;
+		try {
+			String response = "";
+			int responseCode = connection.getResponseCode();
+			boolean iserror = responseCode >= 400;
+			boolean isAccepted = responseCode == 202;
+			try (BufferedReader in = new BufferedReader(
+					new InputStreamReader(!iserror ? connection.getInputStream() : connection.getErrorStream()))) {
+				String line;
+				while((line = in.readLine()) != null) {
+					response += line;
+				}
+				if(iserror)
+					System.out.println("Error:" + responseCode + "|" + connection.getResponseMessage() + ". Response: "
+							+ response);
+				else
+					System.out.println("Response: " + response);
+				return (!iserror && isAccepted) ? response : null;
+			}
+
+		} catch(IOException e) {
+			System.out.println("Error: " + e.getMessage() + " | ");
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	/**
+	 * Extract request_uri from JSON response.
+	 *
+	 * @param jsonResponse The JSON response string
+	 * @return The request_uri value, or null if not found or parsing fails
+	 */
+	protected static String extractRequestUri(String jsonResponse) {
+		if(jsonResponse == null || jsonResponse.isEmpty())
+			return null;
+
+		try (JsonReader reader = Json.createReader(new StringReader(jsonResponse))) {
+			JsonObject obj = reader.readObject();
+			if(obj.containsKey("request_uri")) {
+				return obj.getString("request_uri");
+			}
+		} catch(Exception e) {
+			System.out.println("Error parsing request_uri from JSON: " + e.getMessage());
+		}
+		return null;
+	}
+
+	/**
+	 * Extract execution_result status from JSON response.
+	 *
+	 * @param jsonResponse The JSON response string
+	 * @return The execution_result status (RUNNING/SUCCESS/FAILURE/TIMEOUT), or null if not found
+	 */
+	protected static String extractExecutionResult(String jsonResponse) {
+		if(jsonResponse == null || jsonResponse.isEmpty())
+			return null;
+
+		try (JsonReader reader = Json.createReader(new StringReader(jsonResponse))) {
+			JsonObject obj = reader.readObject();
+			if(obj.containsKey("execution_result")) {
+				return obj.getString("execution_result");
+			}
+		} catch(Exception e) {
+			System.out.println("Error parsing execution_result from JSON: " + e.getMessage());
+		}
+		return null;
 	}
 }

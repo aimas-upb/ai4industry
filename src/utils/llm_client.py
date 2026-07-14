@@ -29,7 +29,7 @@ class LLMClient:
                 api_key=MISTRAL_API_KEY,
                 base_url=MISTRAL_BASE_URL,
                 timeout=600,
-            )
+            )   
         else:
             self.client = OpenAI(api_key=LLM_API_KEY, timeout=600)
 

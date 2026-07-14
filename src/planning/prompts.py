@@ -129,7 +129,7 @@ Your task: Generate a JSON BehaviorTree that solves the given goal by orchestrat
   - Example: "moveTo" implies the robot is not already at the destination (verify via location properties)
   - Example: "release" implies the robot is currently holding something (check grasping state first)
   - Guard actions with condition checks when preconditions are not guaranteed
-- Use conditions to guard actions where appropriate
+
 - Use sequences for ordered task chains
 - Use selectors for check-then-act patterns
 - Always verify coordinates and parameters match the artifacts' schemas

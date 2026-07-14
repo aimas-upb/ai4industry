@@ -33,10 +33,12 @@ class GoalRequest(BaseModel):
         goal: The goal predicate instance (e.g., '!carry("APAS", "DX10_output", "XY10_input")')
         schema: Optional goal predicate schema (e.g., '!carry(RobotName, FromLocation, ToLocation)'). If not provided, will be inferred.
         execute: If True, execute the generated BehaviorTree; if False, only plan
+        callback_url: Optional callback URL. If provided, solve runs asynchronously and result is PUT to this URL when ready.
     """
     goal: str
     schema: Optional[str] = None
     execute: bool = False
+    callback_url: Optional[str] = None
 
 
 class GoalResponse(BaseModel):

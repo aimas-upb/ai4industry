@@ -54,7 +54,7 @@ public class LlmBridge extends Artifact {
 	}
 	
 	public static String RESULT_PROPERTY_NAME = "llmResult";
-	protected static final long	CHECK_PERIOD_MS	= 2000L;
+	protected static final long	CHECK_PERIOD_MS	= 5000L;
 	protected Timer				timer;
 	protected static int N_RETRIES = 3;
 	protected int retries_left = 0;
@@ -63,7 +63,7 @@ public class LlmBridge extends Artifact {
 	void init() {
 		// optional setup logic when the artifact is created
 		log("LLM Bridge artifact up.");
-		defineObsProperty(RESULT_PROPERTY_NAME, "");
+		defineObsProperty(RESULT_PROPERTY_NAME, (String) null);
 	}
 	
 	@OPERATION
@@ -84,7 +84,8 @@ public class LlmBridge extends Artifact {
 				currentRequestUri = extractRequestUri(response);
 				if(currentRequestUri != null) {
 					System.out.println("Request URI: " + currentRequestUri);
-					getObsProperty(RESULT_PROPERTY_NAME).updateValue("");
+					if(getObsProperty(RESULT_PROPERTY_NAME).getValue() != null)	
+						getObsProperty(RESULT_PROPERTY_NAME).updateValue("");
 					retries_left = N_RETRIES;
 					startCheckTimer();
 				} else {
@@ -138,20 +139,32 @@ public class LlmBridge extends Artifact {
 			// Check the response
 			String response = checkResponse(connection);
 			if(response != null) {
-				System.out.println("Response received.");
-				// Extract execution_result status from the response JSON
 				String status = extractExecutionResult(response);
+				System.out.println("Response received. Status is: " + (status != null ? status : "<null>"));
+				// Extract execution_result status from the response JSON
 				if(status != null && (status.equals("SUCCESS") || status.equals("FAILURE") || status.equals("TIMEOUT"))) {
 					// Terminal status reached - update property and stop polling
-					getObsProperty(RESULT_PROPERTY_NAME).updateValue(response);
+					switch(status) {
+					case "SUCCESS":
+						getObsProperty(RESULT_PROPERTY_NAME).updateValue(extractResult(response, "bt_plan"));						
+						break;
+					case "FAILURE":
+						getObsProperty(RESULT_PROPERTY_NAME).updateValue("FAILURE");
+						break;
+					case "TIMEOUT":
+						getObsProperty(RESULT_PROPERTY_NAME).updateValue("TIMEOUT");
+					default:
+						break;
+					}
 					stopCheckTimer();
+					System.out.println("Request completed");
 				} else {
 					// Still running or just received initial response - keep polling
 					System.out.println("Request still " + (status != null ? status : "processing"));
 				}
 			}
 			else {
-				System.out.println("Response: Error");
+				System.out.println("Response: Error. Retries left: " + retries_left);
 				retries_left--;
 				if(retries_left <= 0) {
 					System.out.println("Stopped waiting for result.");
@@ -215,10 +228,10 @@ public class LlmBridge extends Artifact {
 					response += line;
 				}
 				if(iserror)
-					System.out.println("Error:" + responseCode + "|" + connection.getResponseMessage() + ". Response: "
+					System.out.println("Error (checkResponse): " + responseCode + "|" + connection.getResponseMessage() + ". Response: "
 							+ response);
 				else
-					System.out.println("Response: " + response);
+					System.out.println("Response (checkResponse): " + response);
 				return !iserror && isOK ? response : null;
 			}
 
@@ -251,10 +264,10 @@ public class LlmBridge extends Artifact {
 					response += line;
 				}
 				if(iserror)
-					System.out.println("Error:" + responseCode + "|" + connection.getResponseMessage() + ". Response: "
+					System.out.println("Error (checkResponseW/Code): " + responseCode + "|" + connection.getResponseMessage() + ". Response: "
 							+ response);
 				else
-					System.out.println("Response: " + response);
+					System.out.println("Response (checkResponseW/Code):" + response);
 				return (!iserror && isAccepted) ? response : null;
 			}
 
@@ -272,34 +285,29 @@ public class LlmBridge extends Artifact {
 	 * @return The request_uri value, or null if not found or parsing fails
 	 */
 	protected static String extractRequestUri(String jsonResponse) {
-		if(jsonResponse == null || jsonResponse.isEmpty())
-			return null;
+		return extractResult(jsonResponse, "request_uri");
 
-		try (JsonReader reader = Json.createReader(new StringReader(jsonResponse))) {
-			JsonObject obj = reader.readObject();
-			if(obj.containsKey("request_uri")) {
-				return obj.getString("request_uri");
-			}
-		} catch(Exception e) {
-			System.out.println("Error parsing request_uri from JSON: " + e.getMessage());
-		}
-		return null;
 	}
 
+	protected static String extractExecutionResult(String jsonResponse) {
+		return extractResult(jsonResponse, "execution_result");
+	}
+	
 	/**
 	 * Extract execution_result status from JSON response.
 	 *
 	 * @param jsonResponse The JSON response string
+	 * @param elementName The name of the element to extract)
 	 * @return The execution_result status (RUNNING/SUCCESS/FAILURE/TIMEOUT), or null if not found
 	 */
-	protected static String extractExecutionResult(String jsonResponse) {
+	protected static String extractResult(String jsonResponse, String elementName) {
 		if(jsonResponse == null || jsonResponse.isEmpty())
 			return null;
 
 		try (JsonReader reader = Json.createReader(new StringReader(jsonResponse))) {
 			JsonObject obj = reader.readObject();
-			if(obj.containsKey("execution_result")) {
-				return obj.getString("execution_result");
+			if(obj.containsKey(elementName)) {
+				return obj.getString(elementName);
 			}
 		} catch(Exception e) {
 			System.out.println("Error parsing execution_result from JSON: " + e.getMessage());

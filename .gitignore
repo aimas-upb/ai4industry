@@ -45,6 +45,8 @@ venv/
 /ENV/
 /env/
 .venv
+/lib64/
+/pyvenv.cfg
 
 # Poetry
 poetry.lock

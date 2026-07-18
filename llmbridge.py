@@ -239,6 +239,8 @@ def solve():
                 log(f"Agent response status: {response.status_code}")
                 response.raise_for_status()
             log(f"Agent accepted request for goal: {goal_instance}")
+        except httpx.TimeoutException:
+            print("Normal time out.")
         except Exception as e:
             logE(f"Failed to invoke agent: {e}")
             # Mark the request as failed since we couldn't even send it

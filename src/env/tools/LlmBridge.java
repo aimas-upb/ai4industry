@@ -14,6 +14,8 @@ import java.util.TimerTask;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
+import javax.json.JsonString;
+import javax.json.JsonValue;
 
 import cartago.Artifact;
 import cartago.INTERNAL_OPERATION;
@@ -306,11 +308,18 @@ public class LlmBridge extends Artifact {
 
 		try (JsonReader reader = Json.createReader(new StringReader(jsonResponse))) {
 			JsonObject obj = reader.readObject();
-			if(obj.containsKey(elementName)) {
-				return obj.getString(elementName);
+			if(!obj.containsKey(elementName) || obj.isNull(elementName)) {
+				return null;
 			}
+			JsonValue value = obj.get(elementName);
+			// String values (e.g. execution_result, request_uri) are returned unquoted.
+			// Object/array values (e.g. bt_plan) are returned as their JSON serialization.
+			if(value.getValueType() == JsonValue.ValueType.STRING) {
+				return ((JsonString) value).getString();
+			}
+			return value.toString();
 		} catch(Exception e) {
-			System.out.println("Error parsing execution_result from JSON: " + e.getMessage());
+			System.out.println("Error parsing '" + elementName + "' from JSON: " + e.getMessage());
 		}
 		return null;
 	}

@@ -1,6 +1,7 @@
 import logging
 import threading
 import uuid
+import time
 from dataclasses import dataclass, asdict
 from typing import Optional
 import flask
@@ -232,9 +233,11 @@ def solve():
         }
 
         try:
-            # Send to agent with short timeout since it responds 202 immediately
-            response = httpx.post(AGENT_URL, json=payload, timeout=5)
-            response.raise_for_status()
+            # Send to agent - it queues the solve in a threadpool and returns 202 immediately
+            with httpx.Client() as client:
+                response = client.post(AGENT_URL, json=payload, timeout=5.0)
+                log(f"Agent response status: {response.status_code}")
+                response.raise_for_status()
             log(f"Agent accepted request for goal: {goal_instance}")
         except Exception as e:
             logE(f"Failed to invoke agent: {e}")

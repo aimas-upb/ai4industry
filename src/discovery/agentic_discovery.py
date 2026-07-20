@@ -179,11 +179,10 @@ class AgenticDiscovery:
                 logger.debug("No tool calls in response, breaking")
                 break
 
-            # Add assistant message with content if present
-            if content:
-                messages.append({"role": "user", "content": content})
-
-            # Process tool calls
+            # Execute each tool call and collect results (index-aligned with tool_calls)
+            # so the whole assistant turn can be appended to history in provider-correct form.
+            results = []
+            done = False
             for i, tool_call in enumerate(tool_calls):
                 tool_name = tool_call.name
                 tool_args = json.loads(tool_call.arguments)
@@ -207,18 +206,27 @@ class AgenticDiscovery:
                     logger.error(error_msg, exc_info=True)
                     raise
 
-                # Add tool result to messages for next iteration
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": result,
-                    }
-                )
+                results.append(result)
 
-                # If done_discovering, stop the loop
+                # done_discovering terminates the loop once this turn is recorded
                 if tool_name == "done_discovering":
-                    logger.debug(f"Discovery phase complete. Found {len(capability_model.artifacts)} artifacts")
-                    return capability_model
+                    done = True
+
+            # Record the assistant tool-use turn and results in the correct format for
+            # the active provider, so the model sees what it already fetched next turn.
+            self.llm.append_tool_turn(messages, content, tool_calls, results)
+
+            if done:
+                logger.debug(f"Discovery phase complete. Found {len(capability_model.artifacts)} artifacts")
+                return capability_model
+
+        # Loop ended without an explicit done_discovering signal (e.g. iteration cap
+        # reached). Build the model from whatever graphs were fetched so discovery
+        # still yields artifacts instead of returning empty.
+        if not capability_model.artifacts:
+            logger.debug("Discovery loop ended without done_discovering; building model from fetched graphs")
+            self._build_capability_model(capability_model)
+        logger.debug(f"Discovery phase complete. Found {len(capability_model.artifacts)} artifacts")
 
         return capability_model
 
@@ -297,58 +305,75 @@ class AgenticDiscovery:
             return json.dumps(location)
 
         elif tool_name == "done_discovering":
-            # Build capability model from collected graphs
-            for artifact_name, graph in self.graphs.items():
-                thing_uri = None
-                # Try to find the Thing URI from the graph's subjects
-                for subject in graph.subjects():
-                    subject_str = str(subject)
-                    if "#this" in subject_str:
-                        thing_uri = subject_str
-                        break
-
-                if not thing_uri:
-                    continue
-
-                # Create artifact
-                artifact = Artifact(
-                    name=artifact_name,
-                    kg_uri=thing_uri,
-                )
-
-                # Add actions
-                actions_data = list_action_affordances(graph, thing_uri)
-                for action_data in actions_data:
-                    affordance = Affordance(
-                        name=action_data.get("name", ""),
-                        endpoint_url=action_data.get("endpoint_url", ""),
-                        semantic_type=action_data.get("semantic_type", ""),
-                        op_type="invokeaction",
-                        schema=action_data.get("input_schema", {}),
-                    )
-                    artifact.actions.append(affordance)
-
-                # Add properties
-                properties_data = list_property_affordances(graph, thing_uri)
-                for prop_data in properties_data:
-                    affordance = Affordance(
-                        name=prop_data.get("name", ""),
-                        endpoint_url=prop_data.get("endpoint_url", ""),
-                        semantic_type=prop_data.get("semantic_type", ""),
-                        op_type=prop_data.get("op_type", "readproperty"),
-                        schema=prop_data.get("schema", {}),
-                    )
-                    artifact.properties.append(affordance)
-
-                # Add location info
-                location = get_location_info(graph, thing_uri)
-                artifact.location = location
-
-                capability_model.artifacts[artifact_name] = artifact
-
+            # Build the capability model from all graphs fetched during discovery
+            self._build_capability_model(capability_model)
             return "Discovery complete. CapabilityModel built."
 
         return "Unknown tool"
+
+    def _build_capability_model(self, capability_model: CapabilityModel) -> None:
+        """
+        Populate the capability model from every RDF graph fetched during discovery.
+
+        For each cached artifact graph this extracts the Thing URI, its action and
+        property affordances, and its location, and records them on the model. It is
+        idempotent (re-adding an artifact simply overwrites it), so it can be called
+        both when the model signals done_discovering and as a fallback when the
+        discovery loop ends without that signal. Mutates `capability_model` in place.
+
+        Args:
+            capability_model: The model to populate with discovered artifacts.
+
+        Returns:
+            None. `capability_model.artifacts` is updated in place.
+        """
+        for artifact_name, graph in self.graphs.items():
+            thing_uri = None
+            # Try to find the Thing URI from the graph's subjects
+            for subject in graph.subjects():
+                subject_str = str(subject)
+                if "#this" in subject_str:
+                    thing_uri = subject_str
+                    break
+
+            if not thing_uri:
+                continue
+
+            # Create artifact
+            artifact = Artifact(
+                name=artifact_name,
+                kg_uri=thing_uri,
+            )
+
+            # Add actions
+            actions_data = list_action_affordances(graph, thing_uri)
+            for action_data in actions_data:
+                affordance = Affordance(
+                    name=action_data.get("name", ""),
+                    endpoint_url=action_data.get("endpoint_url", ""),
+                    semantic_type=action_data.get("semantic_type", ""),
+                    op_type="invokeaction",
+                    schema=action_data.get("input_schema", {}),
+                )
+                artifact.actions.append(affordance)
+
+            # Add properties
+            properties_data = list_property_affordances(graph, thing_uri)
+            for prop_data in properties_data:
+                affordance = Affordance(
+                    name=prop_data.get("name", ""),
+                    endpoint_url=prop_data.get("endpoint_url", ""),
+                    semantic_type=prop_data.get("semantic_type", ""),
+                    op_type=prop_data.get("op_type", "readproperty"),
+                    schema=prop_data.get("schema", {}),
+                )
+                artifact.properties.append(affordance)
+
+            # Add location info
+            location = get_location_info(graph, thing_uri)
+            artifact.location = location
+
+            capability_model.artifacts[artifact_name] = artifact
 
 
 def parse_goal_artifacts(goal: str) -> list[str]:

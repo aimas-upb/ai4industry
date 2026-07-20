@@ -11,6 +11,11 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")  # "openai" or "mistral"
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-5-mini")
 LLM_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
+# Optional override for reasoning effort on models that support reasoning.
+# When unset (None), each model config uses its own hardcoded default; when set
+# (e.g. "low"/"medium"/"high"), it overrides that default for both providers.
+LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT")
+
 # If using Mistral via OpenAI-compatible endpoint
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 MISTRAL_BASE_URL = "https://api.mistral.ai/v1"

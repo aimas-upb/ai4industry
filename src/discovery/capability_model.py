@@ -9,6 +9,7 @@ class Affordance:
     semantic_type: str
     op_type: str  # "invokeaction" | "readproperty" | "writeproperty"
     schema: dict = field(default_factory=dict)
+    description: str = ""  # Natural-language description from dct:description
 
 
 @dataclass
@@ -39,6 +40,8 @@ class CapabilityModel:
                     lines.append(
                         f"  - **{action.name}** [{action.semantic_type}]"
                     )
+                    if action.description:
+                        lines.append(f'    description: "{action.description}"')
                     lines.append(f"    POST `{action.endpoint_url}`")
                     if action.schema:
                         params_str = ", ".join(
@@ -54,6 +57,8 @@ class CapabilityModel:
                     lines.append(
                         f"  - **{prop.name}** [{prop.semantic_type}]"
                     )
+                    if prop.description:
+                        lines.append(f'    description: "{prop.description}"')
                     method = "PUT" if "writeproperty" in prop.op_type else "GET"
                     lines.append(f"    {method} `{prop.endpoint_url}`")
                     if prop.schema:

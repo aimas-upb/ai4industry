@@ -15,6 +15,7 @@ SOSA = Namespace("http://www.w3.org/ns/sosa/")
 SSN = Namespace("http://www.w3.org/ns/ssn/")
 S4SYST = Namespace("https://saref.etsi.org/saref4syst/")
 CDT = Namespace("https://w3id.org/cdt/")
+DCT = Namespace("http://purl.org/dc/terms/")
 
 
 def fetch_graph(artifact_name: str) -> Optional[Graph]:
@@ -33,6 +34,7 @@ def fetch_graph(artifact_name: str) -> Optional[Graph]:
     graph.bind("ssn", SSN)
     graph.bind("s4syst", S4SYST)
     graph.bind("cdt", CDT)
+    graph.bind("dct", DCT)
 
     # Try to fetch from remote using standard artifact URI pattern
     try:
@@ -83,7 +85,7 @@ def get_thing_description(graph: Graph, thing_uri: str) -> dict:
 def list_action_affordances(graph: Graph, thing_uri: str) -> list[dict]:
     """
     Extract all td:hasActionAffordance entries.
-    Returns list of {name, semantic_type, endpoint_url, input_schema}.
+    Returns list of {name, description, semantic_type, endpoint_url, input_schema}.
     """
     thing = rdflib.URIRef(thing_uri)
     actions = []
@@ -94,6 +96,12 @@ def list_action_affordances(graph: Graph, thing_uri: str) -> list[dict]:
         # Get name
         for name_obj in graph.objects(aff, TD.name):
             action["name"] = str(name_obj)
+            break
+
+        # Get natural-language description (dct:description on the affordance node)
+        action["description"] = ""
+        for desc_obj in graph.objects(aff, DCT.description):
+            action["description"] = str(desc_obj)
             break
 
         # Get semantic type (rdf:type of affordance)
@@ -129,7 +137,7 @@ def list_action_affordances(graph: Graph, thing_uri: str) -> list[dict]:
 def list_property_affordances(graph: Graph, thing_uri: str) -> list[dict]:
     """
     Extract all td:hasPropertyAffordance entries.
-    Returns list of {name, semantic_type, endpoint_url, op_type, schema}.
+    Returns list of {name, description, semantic_type, endpoint_url, op_type, schema}.
     """
     thing = rdflib.URIRef(thing_uri)
     properties = []
@@ -140,6 +148,12 @@ def list_property_affordances(graph: Graph, thing_uri: str) -> list[dict]:
         # Get name
         for name_obj in graph.objects(aff, TD.name):
             prop["name"] = str(name_obj)
+            break
+
+        # Get natural-language description (dct:description on the affordance node)
+        prop["description"] = ""
+        for desc_obj in graph.objects(aff, DCT.description):
+            prop["description"] = str(desc_obj)
             break
 
         # Get semantic type

@@ -354,6 +354,7 @@ class AgenticDiscovery:
                     semantic_type=action_data.get("semantic_type", ""),
                     op_type="invokeaction",
                     schema=action_data.get("input_schema", {}),
+                    description=action_data.get("description", ""),
                 )
                 artifact.actions.append(affordance)
 
@@ -366,6 +367,7 @@ class AgenticDiscovery:
                     semantic_type=prop_data.get("semantic_type", ""),
                     op_type=prop_data.get("op_type", "readproperty"),
                     schema=prop_data.get("schema", {}),
+                    description=prop_data.get("description", ""),
                 )
                 artifact.properties.append(affordance)
 
